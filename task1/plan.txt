@@ -1,0 +1,5 @@
+1. Abstände zwischen den Datenpunkten bestimmen
+	-> Suche nah isolierten / falschen Datenpunkten
+2. Gauss mit alpha = (1 / (Median der Abstände))
+3. Kombination verschiedener Kernels
+4. Ridge Regression Paramter suchen mit Cross-Validation
