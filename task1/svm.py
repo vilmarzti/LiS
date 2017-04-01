@@ -7,13 +7,14 @@ from sklearn import svm
 from sklearn.metrics import mean_squared_error
 
 CVSize = 5
+filename = 'smooth_training.csv'
 
 
-def getData(filename):
+def getData(filepath):
     raw    = []
 
     # read from the csv
-    with open(filename, 'rb') as csvfile:
+    with open(filepath, 'rb') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
         for row in reader:
             raw.append(row)
@@ -31,9 +32,7 @@ def dim2polynom(array):
 
 def validation(data, target, constant):
     score = 0
-    clf = svm.SVR(kernel="sigmoid", C=constant)
-
-    # extract the data and the target values
+    clf = svm.SVR(kernel="rbf", C=constant)
 
     chunk_size = len(data)/CVSize
     for x in range(CVSize):
@@ -76,12 +75,12 @@ if __name__ == "__main__":
     # plt.show()
 
     # extract the data and the target values
-    raw  = getData('train.csv')
+    raw  = getData(filename)
     target = np.array([row[1] for row in raw])
     data   = np.array([dim2polynom(row[2:]) for row in raw])
 
-    steps = 100
-    start = 1
+    steps = 300
+    start = 10
     goodness = np.zeros(steps)
 
     for constant in range(start, steps + start):
@@ -90,7 +89,7 @@ if __name__ == "__main__":
 
     print(goodness[np.argmin(goodness)])
 
-    clf = svm.SVR(kernel="poly", C=44)
+    clf = svm.SVR(kernel="poly", C=29)
     clf.fit(data, target)
 
     # get prediction data
