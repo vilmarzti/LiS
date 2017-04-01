@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 import csv
 import numpy as np
-from sklearn import linear_model
+import matplotlib.pyplot as plt
 from sklearn import svm
+
 from sklearn.metrics import mean_squared_error
 
-CVSize = 10
+CVSize = 5
 
 
 def getData(filename):
@@ -24,26 +25,18 @@ def getData(filename):
 
 
 def dim2polynom(array):
-    row = np.append(array, [1.0])
+    row = array
     return row
 
 
-if __name__ == "__main__":
-    best_coef  = []
-    prev_score = 0
-    best_clf = []
-    # reg = linear_model.LinearRegression(n_jobs=-1)
+def validation(data, target, constant):
+    score = 0
+    clf = svm.SVR(kernel="sigmoid", C=constant)
 
     # extract the data and the target values
-    raw  = getData('train.csv')
-    np.random.shuffle(raw)
-    target = np.array([row[1] for row in raw])
-    data   = np.array([dim2polynom(row[2:]) for row in raw])
 
     chunk_size = len(data)/CVSize
-    print("Crossvalidation with {} samples and sample size {}".format(CVSize,chunk_size))
     for x in range(CVSize):
-        clf = svm.SVR(kernel='poly', C=100)
 
         # These describe where to cut to get our crossdat
         first_step  = x*chunk_size
@@ -63,26 +56,49 @@ if __name__ == "__main__":
         # Get scores for our model
         pred = clf.predict(sample_data)
         RMSE = mean_squared_error(sample_target, pred)**0.5
+        score += RMSE
 
-        # Save best score
-        if prev_score == 0 or prev_score > RMSE:
-            best_clf = clf
-            prev_score = RMSE
-            best_rmse = RMSE
-            print(RMSE)
+    score = score/CVSize
 
-    print("Best: {} {} ".format(prev_score, best_rmse))
+    print("Cross-Validation RMSE: {} ".format(score))
 
     # Get global score
-    pred = best_clf.predict(data)
+    clf.fit(data, target)
+    pred = clf.predict(data)
     RMSE = mean_squared_error(target, pred)**0.5
     print("RMSE on whole dataset {}".format(RMSE))
+
+    return score
+
+
+if __name__ == "__main__":
+    # plt.plot(goodness, [x for x in range(40, 60)])
+    # plt.show()
+
+    # extract the data and the target values
+    raw  = getData('train.csv')
+    target = np.array([row[1] for row in raw])
+    data   = np.array([dim2polynom(row[2:]) for row in raw])
+
+    steps = 100
+    start = 1
+    goodness = np.zeros(steps)
+
+    for constant in range(start, steps + start):
+        print("Constant: {}".format(constant))
+        goodness[constant-start] = validation(data, target, constant)
+
+    print(goodness[np.argmin(goodness)])
+
+    clf = svm.SVR(kernel="poly", C=44)
+    clf.fit(data, target)
 
     # get prediction data
     raw = getData('test.csv')
     data   = [dim2polynom(row[1:]) for row in raw]
     number = [int(row[0]) for row in raw]
-    predict = best_clf.predict(data)
+
+    predict = clf.predict(data)
 
     # Write prediction and it's linenumber into a csv file
     with open('result.csv', 'wb') as csvfile:
