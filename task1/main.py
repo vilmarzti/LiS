@@ -2,9 +2,6 @@
 import csv
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn import linear_model
-
-CVSize = 15
 
 
 def getData(filename):
@@ -50,39 +47,52 @@ def dim2polynom(array):
     return a
 
 
+def get_median(distance_matrix):
+    length = len(distance_matrix)
+    flat_distances = []
+
+    for x in range(length):
+        for y in range(length):
+            dist = distance_matrix[x][y]
+            if not np.isnan(dist):
+                flat_distances.append(dist)
+
+    return np.median(flat_distances)
+
 if __name__ == "__main__":
     best_coef  = []
     prev_score = 0
-    reg = linear_model.LinearRegression(n_jobs=-1)
 
     # extract the data and the target values
     raw  = getData('train.csv')
     target = np.array([row[1] for row in raw])
-    data   = np.array([dim2polynom(row[2:]) for row in raw])
+    whole  = np.array([row[1:] for row in raw])
+    data   = np.array([row[2:] for row in raw])
 
-    distances   = dist_matrix(raw)
+    distances   = dist_matrix(whole)
     x_distances = dist_matrix(data)
-
-    # Get Median
-    flat_distances = []
-    for x in range(len(distances)):
-        for y in range(len(distances)):
-            dist = distances[x][y]
-            if not np.isnan(dist):
-                flat_distances.append(dist)
-
-    print("The median is: {}".format(np.median(flat_distances)))
 
     # Comute nearest neighbour distance for each data point
     nnd   = np.nanmin(distances, axis=0)
     x_nnd = np.nanmin(x_distances, axis=0)
+    x_nn    = np.nanargmin(x_distances, axis=1)
 
-    difference = np.array([abs(val) for val in (nnd - x_nnd)])
+
+    o_difference = []
+    for x in range(900):
+        nn_index = x_nn[x]
+        x_norm = np.linalg.norm(data[x] - data[nn_index])
+        distance = abs(target[x] - target[nn_index])/x_norm
+        o_difference.append(distance)
+
+    o_difference = np.array(o_difference)
+    plt.plot(np.sort(o_difference))
+    plt.show()
+
+    difference = np.array([val for val in (nnd - x_nnd)])
 
     # Get all the indices which are ok
-    # acceptabel = [val for val in difference if val < 22]
-    # indices = [np(val) for val in acceptabel]
-    indices = np.where(difference < 10)
+    indices = np.where(o_difference < 25)
 
     with open('smooth_training.csv', 'wb') as csvfile:
         writer = csv.writer(csvfile)
@@ -92,4 +102,4 @@ if __name__ == "__main__":
         for index in indices[0]:
             writer.writerow(np.asarray(raw[index]))
 
-#    print("indices above cutoff: {}".format(indices))
+    print("number of indices above cutoff: {}".format(len(indices[0])))

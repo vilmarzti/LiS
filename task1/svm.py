@@ -3,11 +3,12 @@ import csv
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn import svm
-
+from sklearn.kernel_ridge import KernelRidge
 from sklearn.metrics import mean_squared_error
 
 CVSize = 5
-filename = 'smooth_training.csv'
+filename = './smooth_training.csv'
+filename = './train.csv'
 
 
 def getData(filepath):
@@ -30,9 +31,17 @@ def dim2polynom(array):
     return row
 
 
+def my_kernel(X, Y):
+    print(len(X), len(Y))
+    a = np.inner(X, Y)
+    m = (1 + a)**2 + np.exp((1.0/20) * np.linalg.norm(X-Y)**2)
+    return m
+
+
 def validation(data, target, constant):
+    print("Constant: {}".format(constant))
     score = 0
-    clf = svm.SVR(kernel="rbf", C=constant)
+    clf = svm.SVR(kernel="rbf", C=25, gamma=constant)
 
     chunk_size = len(data)/CVSize
     for x in range(CVSize):
@@ -66,35 +75,13 @@ def validation(data, target, constant):
     pred = clf.predict(data)
     RMSE = mean_squared_error(target, pred)**0.5
     print("RMSE on whole dataset {}".format(RMSE))
+    print("\n")
 
     return score
 
 
-if __name__ == "__main__":
-    # plt.plot(goodness, [x for x in range(40, 60)])
-    # plt.show()
-
-    # extract the data and the target values
-    raw  = getData(filename)
-    target = np.array([row[1] for row in raw])
-    data   = np.array([dim2polynom(row[2:]) for row in raw])
-
-    steps = 300
-    start = 10
-    goodness = np.zeros(steps)
-
-    for constant in range(start, steps + start):
-        print("Constant: {}".format(constant))
-        goodness[constant-start] = validation(data, target, constant)
-
-    print(goodness[np.argmin(goodness)])
-
-    clf = svm.SVR(kernel="poly", C=29)
-    clf.fit(data, target)
-
-    # get prediction data
-    raw = getData('test.csv')
-    data   = [dim2polynom(row[1:]) for row in raw]
+def write_results(raw_data, clf):
+    data   = [row[1:] for row in raw]
     number = [int(row[0]) for row in raw]
 
     predict = clf.predict(data)
@@ -107,3 +94,37 @@ if __name__ == "__main__":
         writer.writeheader()
         for x in range(len(number)):
             writer.writerow({'Id': number[x], 'y': predict[x]})
+
+
+if __name__ == "__main__":
+    # extract the data and the target values
+    raw  = getData(filename)
+
+    target = np.array([row[1] for row in raw])
+    data   = np.array([row[2:] for row in raw])
+
+    # Binary seach
+    par_range =  [0.0, 15, 30.0]
+
+    for _ in range(20):
+        first_half = par_range[0] + (par_range[1] - par_range[0])/2
+        second_half = par_range[1] + (par_range[2] - par_range[1])/2
+        print(first_half, second_half)
+
+        first_par_range = validation(data, target, first_half)
+        second_par_range = validation(data, target, second_half)
+
+        if first_par_range < second_par_range:
+            par_range[2] = par_range[1]
+            par_range[1] = first_half
+        else:
+            par_range[0] = par_range[1]
+            par_range[1] = second_half
+
+
+    clf = svm.SVR(kernel="poly", C=par_range[1])
+    clf.fit(data, target)
+
+    # get prediction data
+    raw = getData('test.csv')
+    write_results(raw, clf)
