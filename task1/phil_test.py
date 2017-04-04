@@ -11,7 +11,8 @@ import sklearn.metrics
 from sklearn.metrics import mean_squared_error
 
 CVSize = 5
-filename = 'smooth_training.csv'
+filename = 'train.csv'
+filename = './smooth_training.csv'
 
 def getData(filepath):
     raw    = []
@@ -35,16 +36,24 @@ def dim2polynom(array):
 
 def validation(data, target, constant):
     score = 0
-    
-    
-    
-    regressor = svm.SVR(kernel = "rbf")
-    param_grid = {'C':np.linspace(1.0 , 50.0, num = 50), 'gamma': np.linspace(0.0, 1.0, 100)}
-    grid_search = sklearn.grid_search.GridSearchCV(regressor,param_grid,scoring=sklearn.metrics.make_scorer(sklearn.metrics.mean_squared_error, greater_is_better = False),cv=5)
+
+
+
+    regressor = svm.NuSVR(kernel = "poly")
+
+    param_grid = {'C':np.linspace(20.0 , 40.0, 10),
+                  'nu':np.linspace(0.0001, 1, 5)}
+
+    grid_search = sklearn.grid_search.GridSearchCV(regressor,
+                        param_grid,
+                        scoring=sklearn.metrics.make_scorer(sklearn.metrics.mean_squared_error,
+                                                            greater_is_better = False),
+                        cv=5,
+                        n_jobs=-1)
     grid_search.fit(data,target)
     clf = grid_search.best_estimator_
     print (clf)
-    
+
 
     chunk_size = len(data)/CVSize
     for x in range(CVSize):
@@ -92,39 +101,4 @@ if __name__ == "__main__":
     target = np.array([row[1] for row in raw])
     data   = np.array([dim2polynom(row[2:]) for row in raw])
 
-    '''
-    steps = 300
-    start = 10
-    goodness = np.zeros(steps)
-
-    for constant in range(start, steps + start):
-        print("Constant: {}".format(constant))
-        goodness[constant-start] = validation(data, target, constant)
-
-    print(goodness[np.argmin(goodness)])
-    '''
-
-    '''
-    clf = svm.SVR(kernel="poly", C=29)
-    clf.fit(data, target)
-    '''
-
-    validation(data,target,0)
-
-    '''
-    # get prediction data
-    raw = getData('test.csv')
-    data   = [dim2polynom(row[1:]) for row in raw]
-    number = [int(row[0]) for row in raw]
-
-    predict = clf.predict(data)
-
-    # Write prediction and it's linenumber into a csv file
-    with open('result.csv', 'wb') as csvfile:
-        fieldnames = ['Id', 'y']
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-
-        writer.writeheader()
-        for x in range(len(number)):
-            writer.writerow({'Id': number[x], 'y': predict[x]})
-    '''
+    validation(data, target, 0)

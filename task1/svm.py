@@ -3,11 +3,12 @@ import csv
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn import svm
+from sklearn import preprocessing
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.metrics import mean_squared_error
 
 CVSize = 5
-filename = './smooth_training.csv'
+#filename = './smooth_training.csv'
 filename = './train.csv'
 
 
@@ -41,7 +42,7 @@ def my_kernel(X, Y):
 def validation(data, target, constant):
     print("Constant: {}".format(constant))
     score = 0
-    clf = svm.SVR(kernel="rbf", C=25, gamma=constant)
+    clf = svm.SVR(kernel="rbf", C=800, gamma=constant)
 
     chunk_size = len(data)/CVSize
     for x in range(CVSize):
@@ -56,7 +57,7 @@ def validation(data, target, constant):
 
         # fit and save the coef
         clf.fit(cross_data, cross_target)
-
+#
         # Find mean squared error and print it
         sample_data   = data[first_step:second_step]
         sample_target = target[first_step:second_step]
@@ -80,7 +81,7 @@ def validation(data, target, constant):
     return score
 
 
-def write_results(raw_data, clf):
+def write_results(raw_data, clf, scaler):
     data   = [row[1:] for row in raw]
     number = [int(row[0]) for row in raw]
 
@@ -101,18 +102,20 @@ if __name__ == "__main__":
     raw  = getData(filename)
 
     target = np.array([row[1] for row in raw])
+    scaler = preprocessing.StandardScaler().fit(target)
+    new_target = scaler.transform(target)
     data   = np.array([row[2:] for row in raw])
 
     # Binary seach
-    par_range =  [0.0, 15, 30.0]
+    par_range =  [0.0, 0.5, 1.0]
 
-    for _ in range(20):
+    for _ in range(100):
         first_half = par_range[0] + (par_range[1] - par_range[0])/2
         second_half = par_range[1] + (par_range[2] - par_range[1])/2
         print(first_half, second_half)
 
-        first_par_range = validation(data, target, first_half)
-        second_par_range = validation(data, target, second_half)
+        first_par_range = validation(data, new_target, first_half)
+        second_par_range = validation(data, new_target, second_half)
 
         if first_par_range < second_par_range:
             par_range[2] = par_range[1]
@@ -121,10 +124,9 @@ if __name__ == "__main__":
             par_range[0] = par_range[1]
             par_range[1] = second_half
 
-
-    clf = svm.SVR(kernel="poly", C=par_range[1])
-    clf.fit(data, target)
+    clf = svm.SVR(kernel="rbf", C = 800, gamma=par_range[1])
+    clf.fit(data, new_target)
 
     # get prediction data
     raw = getData('test.csv')
-    write_results(raw, clf)
+    write_results(raw, clf, scaler)

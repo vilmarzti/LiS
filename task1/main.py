@@ -77,6 +77,7 @@ if __name__ == "__main__":
     x_nnd = np.nanmin(x_distances, axis=0)
     x_nn    = np.nanargmin(x_distances, axis=1)
 
+    difference = np.array([abs(val) for val in(nnd/x_nnd) ])
 
     o_difference = []
     for x in range(900):
@@ -85,14 +86,14 @@ if __name__ == "__main__":
         distance = abs(target[x] - target[nn_index])/x_norm
         o_difference.append(distance)
 
-    o_difference = np.array(o_difference)
-    plt.plot(np.sort(o_difference))
+    o_difference = np.array(difference)
+    plt.plot(np.sort(nnd))
     plt.show()
 
     difference = np.array([val for val in (nnd - x_nnd)])
 
     # Get all the indices which are ok
-    indices = np.where(o_difference < 25)
+    indices = np.where(nnd < 6)
 
     with open('smooth_training.csv', 'wb') as csvfile:
         writer = csv.writer(csvfile)
