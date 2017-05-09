@@ -4,89 +4,103 @@ from sklearn.metrics import accuracy_score
 
 
 # Network Parameters
-n_input     = 93
-n_hidden_1  = 256
-n_hidden_2  = 128
-n_classes   = 5
+n_input   = 100
+n_classes = 2
 
 # Params
-display_size = 10
-epochs = 800
+display_size = 3
+epochs = 10000
+
 
 #Load data
 data = pd.read_hdf('train.h5', "train")
 test = pd.read_hdf('test.h5', "test")
 
-zerosColumns = (data!=0).any(axis=0)
-data = data.loc[:,zerosColumns]
 
+class MLP(object):
+    def __init__(self, n_input, layer_weights):
+        self.n_layers = len(layer_weights)
+        self.n_input  = n_input
+        self.n_output = layer_weights[-1]
+        self.layer_weights = layer_weights
+        self.weights = []
+        self.biases  = []
 
-weights = {
-    'h1'    : tf.Variable(tf.random_normal([n_input, n_hidden_1])),
-    'h2'    : tf.Variable(tf.random_normal([n_hidden_1, n_hidden_2])),
-    'out'   : tf.Variable(tf.random_normal([n_hidden_2, n_classes]))
-}
+        self.x = tf.placeholder(tf.float32, [None, self.n_input])
+        self.y = tf.placeholder(tf.int32, [None])
 
-biases = {
-    'h1'    : tf.Variable(tf.random_normal([n_hidden_1])),
-    'h2'    : tf.Variable(tf.random_normal([n_hidden_2])),
-    'out'   : tf.Variable(tf.random_normal([n_classes]))
-}
+        with tf.variable_scope("layer-weights"):
+            prev_size = 0
 
-x = tf.placeholder("float", [None, n_input])
-y = tf.placeholder("float", [None, n_classes])
+            for index, size in enumerate(self.layer_weights):
+                if index == 0:
+                    weight = tf.get_variable("weight-{}".format(str(index)),
+                                             shape=(n_input, size))
+                else:
+                    weight = tf.get_variable("weig-{}".format(str(index)),
+                                             shape=(prev_size, size))
 
-def MLP(x, weights, biases):
-    layer1 = tf.add(tf.matmul(x, weights['h1']), biases['h1'])
-    layer1 = tf.nn.relu(layer1)
+                bias = tf.get_variable("bias-{}".format(str(index)),
+                                       shape=(size))
 
-    layer2 = tf.add(tf.matmul(layer1, weights['h2']), biases['h2'])
-    layer2 = tf.nn.relu(layer2)
+                self.weights.append(weight)
+                self.biases.append(bias)
+                prev_size = size
 
-    layer_out = tf.add(tf.matmul(layer2, weights['out']), biases['out'])
-    return layer_out
+        with tf.variable_scope("applied-layers"):
+            prev_layer = 0
+            for x in range(self.n_layers):
+                if x == 0:
+                    layer = self.layer(tf.nn.relu, self.x, self.weights[x], self.biases[x])
+                elif x == self.n_layers - 1:
+                    layer = self.layer(tf.identity, prev_layer, self.weights[x], self.biases[x])
+                else:
+                    layer = self.layer(tf.nn.relu, prev_layer, self.weights[x], self.biases[x])
+                prev_layer = layer
 
+            self.out_layer = prev_layer
 
-mlp = MLP(x, weights, biases)
+        self.cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=self.out_layer,
+                                                                       labels=self.y)
 
-cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=mlp,
-                                                              labels=y))
+        self.cost = tf.reduce_mean(self.cross_entropy)
+        self.prediction = tf.argmax(self.out_layer, 1)
+        self.optimizer = tf.train.AdamOptimizer().minimize(self.cost)
 
-optimizer = tf.train.AdamOptimizer().minimize(cost)
-init = tf.global_variables_initializer()
+    def layer(self, function, inp,  weights, bias):
+        y = tf.matmul(inp, weights) + bias
+        return function(y)
+
 
 with tf.Session() as sess:
-    sess.run(init)
-    avg_cost = 0
+    mlp = MLP(n_input, [2048, 1024, 512, 256, 128, 64, 32, n_classes])
+
+    sess.run(tf.global_variables_initializer())
+    file_writer = tf.summary.FileWriter('./logs', sess.graph)
     step = 0
 
     y_col = data.get('y').tolist()[:3500]
-    y_col = tf.one_hot(y_col, n_classes).eval()
+    y_col = [1 if y==0 else 0 for y in y_col]
+
     x_col = data.drop('y', 1).values[:3500]
 
     y_test = data.get('y').tolist()[3500:]
+    y_col = [1 if y==0 else 0 for y in y_test]
+
     x_test = data.drop('y', 1).values[3500:]
-    y_hot = tf.one_hot(y_col, n_classes).eval()
-    prediction = tf.argmax(mlp, 1)
 
     for index in range(epochs):
-        _, c = sess.run([optimizer, cost], feed_dict={x: x_col,
-                                                      y: y_col})
-        avg_cost += c/float(display_size)
+        _ = sess.run(mlp.optimizer, feed_dict={mlp.x: x_col,
+                                               mlp.y: y_col})
 
         if index % display_size == 0:
-            acc = accuracy_score(prediction.eval({x: x_test}), y_test)
+            y_pred = sess.run(mlp.prediction, feed_dict={mlp.x: x_test})
+            acc = accuracy_score(y_pred, y_test)
 
-            print("Step {} - Cost: {}".format(index, avg_cost))
+            print("Step {}".format(index))
             print("sklearn acc: {}".format(acc))
             print("\n")
 
-            avg_cost = 0
-
-    acc = accuracy_score(prediction.eval({x: x_test}), y_test)
-
-    correct_predictions = tf.equal(tf.argmax(mlp, 1), tf.argmax(y, 1))
-    accuracy = tf.reduce_mean(tf.cast(correct_predictions, "float"))
-
-    print("accuracy", accuracy.eval({x: x_col, y: y_col}))
+    x_pred = sess.run(mlp.prediction, feed_dict={mlp.x:x_test})
+    acc = accuracy_score(x_pred,  y_test)
     print("sklearn acc: {}".format(acc))
