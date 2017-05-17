@@ -20,7 +20,7 @@ from lasagne.layers import DropoutLayer
 from lasagne.nonlinearities import softmax
 from lasagne import nonlinearities
 from lasagne.updates import nesterov_momentum
-from nolearn.lasagne import NeuralNet, BatchIterator, PrintLayerInfo
+from nolearn.lasagne import NeuralNet, BatchIterator, PrintLayerInfo, SaveWeights
 import theano
 from theano import function, config, shared, tensor
 from theano.tensor import *
@@ -48,7 +48,7 @@ layers = [
 
 ae = NeuralNet(
     layers=layers,
-    max_epochs=100,
+    max_epochs=50,
     
     update=nesterov_momentum,
     update_learning_rate=0.01,
@@ -57,7 +57,7 @@ ae = NeuralNet(
     input_shape=(None, num_features),
 
     dense_num_units=64,
-    narrow_num_units=25,
+    narrow_num_units=48,
     denseReverse1_num_units=64,
     denseReverse2_num_units=128,
     output_num_units=128,
@@ -80,9 +80,10 @@ ae = NeuralNet(
 ae.initialize()
 PrintLayerInfo()(ae)
 
-ae.fit(Z,Z)
+maybe_this_is_a_history = ae.fit(Z,Z)
 
-learned_parameters = ae.get_all_params_values()
-np.save("task4/learned_parameter.npy", learned_parameters)
+#learned_parameters = ae.get_all_params_values()
+#np.save("task4/learned_parameter.npy", learned_parameters)
 
-
+#SaveWeights(path='task4/koebi_train_history_AE')(ae, maybe_this_is_a_history)
+ae.save_params_to('task4/koebi_train_history_AE2')

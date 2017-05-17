@@ -77,7 +77,7 @@ nn = NeuralNet(
 
 nn.initialize()
 
-#nn.load_params_from('task4/koebi_train_history_AE');
+nn.load_params_from('task4/koebi_train_history_AE');
 
 PrintLayerInfo()(nn)
 
